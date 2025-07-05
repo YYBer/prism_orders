@@ -102,10 +102,6 @@ export declare class HodlLadderDCA {
      */
     private rebalanceIfNeeded;
     /**
-     * Cancel all active orders using 1inch API
-     */
-    cancelAllOrders(): Promise<void>;
-    /**
      * Display current strategy status with 1inch API data
      */
     displayStatus(): Promise<void>;

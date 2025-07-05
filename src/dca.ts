@@ -598,13 +598,30 @@ export class HodlLadderDCA {
     public async getActiveOrdersFromAPI(): Promise<OneInchOrderInfo[]> {
         try {
             const makerAddress = await this.signer.getAddress();
+            console.log(`🔍 Querying orders for maker: ${makerAddress}`);
+            
             const ordersResponse = await this.oneInchApi.getOrdersByMaker(new OneInchAddress(makerAddress));
+            console.log(`📊 Raw API response length: ${ordersResponse?.length || 0}`);
+            
+            if (!ordersResponse || !Array.isArray(ordersResponse)) {
+                console.log('⚠️  Invalid response format from 1inch API');
+                return [];
+            }
+            
+            console.log('📄 Processing orders:');
+            ordersResponse.forEach((order: any, index: number) => {
+                console.log(`   ${index + 1}. ${order.orderHash?.slice(0, 10)}... - Invalid: ${order.orderInvalidReason || 'None'} - Fillable: ${order.fillableBalance || '0'}`);
+            });
             
             // Filter only active orders and map to expected format
-            return ordersResponse.filter((order: any) => 
-                !order.orderInvalidReason && 
-                (order.fillableBalance || '0') !== '0'
-            ).map((order: any) => ({
+            // Use remainingMakerAmount as primary indicator since fillableBalance might be undefined
+            const activeOrders = ordersResponse.filter((order: any) => {
+                const hasValidAmount = order.remainingMakerAmount && order.remainingMakerAmount !== '0';
+                const isNotInvalid = !order.orderInvalidReason;
+                const isActive = isNotInvalid && hasValidAmount;
+                console.log(`   → Order ${order.orderHash?.slice(0, 10)}... - Invalid: ${order.orderInvalidReason || 'None'} - Remaining: ${order.remainingMakerAmount || '0'} - Active: ${isActive}`);
+                return isActive;
+            }).map((order: any) => ({
                 orderHash: order.orderHash,
                 signature: order.signature || '',
                 data: {
@@ -618,7 +635,7 @@ export class HodlLadderDCA {
                     makerTraits: BigInt(order.data.makerTraits || '0')
                 },
                 createDateTime: order.createDateTime,
-                fillableBalance: order.fillableBalance || '0',
+                fillableBalance: order.fillableBalance || order.remainingMakerAmount || '0',
                 orderInvalidReason: order.orderInvalidReason,
                 auctionStartDate: order.auctionStartDate,
                 auctionEndDate: order.auctionEndDate,
@@ -626,8 +643,13 @@ export class HodlLadderDCA {
                 makerBalance: order.makerBalance || '0',
                 makerAllowance: order.makerAllowance || '0'
             }));
+            
+            console.log(`✅ Filtered to ${activeOrders.length} active orders`);
+            return activeOrders;
+            
         } catch (error) {
             console.error('❌ Failed to fetch orders from 1inch API:', (error as Error).message);
+            console.error('🔎 Full error details:', error);
             return [];
         }
     }
@@ -747,36 +769,6 @@ export class HodlLadderDCA {
         if (activeApiOrders.length < this.config.numberOfOrders) {
             console.log(`📊 Rebalancing needed: ${activeApiOrders.length}/${this.config.numberOfOrders} orders active`);
             // Logic to create new orders could go here
-        }
-    }
-
-    /**
-     * Cancel all active orders using 1inch API
-     */
-    public async cancelAllOrders(): Promise<void> {
-        console.log('\\n🛑 Cancelling all active orders via 1inch API...\\n');
-        
-        try {
-            const activeApiOrders = await this.getActiveOrdersFromAPI();
-            
-            for (const orderInfo of activeApiOrders) {
-                try {
-                    // Note: Direct cancellation via SDK may not be available
-                    // Alternative: mark as cancelled locally and inform user
-                    console.log(`ℹ️ Marking order for cancellation: ${orderInfo.orderHash.slice(0, 10)}...`);
-                    console.log(`⚠️ Manual cancellation may be required via 1inch interface`);
-                    
-                    const orderData = this.activeOrders.get(orderInfo.orderHash);
-                    if (orderData) {
-                        orderData.status = OrderStatus.CANCELLED;
-                        console.log(`✅ Order marked as cancelled locally: ${orderInfo.orderHash.slice(0, 10)}...`);
-                    }
-                } catch (error) {
-                    console.error(`❌ Error cancelling order ${orderInfo.orderHash.slice(0, 10)}...:`, (error as Error).message);
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error fetching orders for cancellation:', (error as Error).message);
         }
     }
 

@@ -556,20 +556,6 @@ function showVersion(): void {
   console.log('Powered by @1inch/limit-order-sdk');
 }
 
-// Advanced monitoring function
-async function startAdvancedMonitoring(dcaStrategy: HodlLadderDCA): Promise<void> {
-  console.log('🔬 Advanced Monitoring Features:');
-  console.log('==============================');
-  console.log('• Real-time order status from 1inch API');
-  console.log('• Automatic order synchronization');
-  console.log('• Price tracking and execution alerts');
-  console.log('• Auto-rebalancing when orders fill');
-  console.log('• Gas price optimization\n');
-  
-  // Start the monitoring
-  await dcaStrategy.monitorAndExecute();
-}
-
 // Main execution
 async function main(): Promise<void> {
   // Handle command line arguments
