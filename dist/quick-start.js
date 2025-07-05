@@ -455,7 +455,7 @@ class QuickStartApp {
                 const status = await dcaStrategy.getOrderStatus(order.orderHash);
                 if (status) {
                     console.log(`📊 Order ${order.orderHash.slice(0, 10)}...:`);
-                    console.log(`   Fillable Balance: ${ethers_1.ethers.utils.formatEther(status.fillableBalance || '0')} tokens`);
+                    console.log(`   Fillable Balance: ${ethers_1.ethers.utils.formatUnits(status.fillableBalance || '0', 18)} tokens`);
                     console.log(`   Created: ${new Date(status.createDateTime).toLocaleString()}`);
                     console.log(`   Invalid Reason: ${status.orderInvalidReason || 'None (Active)'}`);
                     console.log('');

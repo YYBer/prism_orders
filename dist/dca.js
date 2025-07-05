@@ -495,27 +495,27 @@ class HodlLadderDCA {
             const ordersResponse = await this.oneInchApi.getOrdersByMaker(new limit_order_sdk_1.Address(makerAddress));
             // Filter only active orders and map to expected format
             return ordersResponse.filter((order) => !order.orderInvalidReason &&
-                order.fillableBalance !== '0').map((order) => ({
+                (order.fillableBalance || '0') !== '0').map((order) => ({
                 orderHash: order.orderHash,
                 signature: order.signature || '',
                 data: {
-                    salt: BigInt(order.data.salt),
+                    salt: BigInt(order.data.salt || '0'),
                     maker: order.data.maker,
                     receiver: order.data.receiver,
                     makerAsset: order.data.makerAsset,
                     takerAsset: order.data.takerAsset,
-                    makingAmount: BigInt(order.data.makingAmount),
-                    takingAmount: BigInt(order.data.takingAmount),
-                    makerTraits: BigInt(order.data.makerTraits)
+                    makingAmount: BigInt(order.data.makingAmount || '0'),
+                    takingAmount: BigInt(order.data.takingAmount || '0'),
+                    makerTraits: BigInt(order.data.makerTraits || '0')
                 },
                 createDateTime: order.createDateTime,
-                fillableBalance: order.fillableBalance,
+                fillableBalance: order.fillableBalance || '0',
                 orderInvalidReason: order.orderInvalidReason,
                 auctionStartDate: order.auctionStartDate,
                 auctionEndDate: order.auctionEndDate,
-                remainingMakerAmount: order.remainingMakerAmount,
-                makerBalance: order.makerBalance,
-                makerAllowance: order.makerAllowance
+                remainingMakerAmount: order.remainingMakerAmount || '0',
+                makerBalance: order.makerBalance || '0',
+                makerAllowance: order.makerAllowance || '0'
             }));
         }
         catch (error) {
@@ -670,7 +670,7 @@ class HodlLadderDCA {
             if (activeApiOrders.length > 0) {
                 console.log('📋 Order Details:');
                 for (const orderInfo of activeApiOrders.slice(0, 5)) { // Show first 5 orders
-                    console.log(`   ${orderInfo.orderHash.slice(0, 10)}... - Fillable: ${ethers_1.ethers.utils.formatUnits(orderInfo.fillableBalance, this.config.fromTokenDecimals)} ${this.config.fromTokenSymbol}`);
+                    console.log(`   ${orderInfo.orderHash.slice(0, 10)}... - Fillable: ${ethers_1.ethers.utils.formatUnits(orderInfo.fillableBalance || '0', this.config.fromTokenDecimals)} ${this.config.fromTokenSymbol}`);
                 }
                 if (activeApiOrders.length > 5) {
                     console.log(`   ... and ${activeApiOrders.length - 5} more orders`);
@@ -708,14 +708,14 @@ class HodlLadderDCA {
                 orderHash,
                 signature: '',
                 data: {
-                    salt: BigInt(result.data.salt),
+                    salt: BigInt(result.data.salt || '0'),
                     maker: result.data.maker,
                     receiver: result.data.receiver,
                     makerAsset: result.data.makerAsset,
                     takerAsset: result.data.takerAsset,
-                    makingAmount: BigInt(result.data.makingAmount),
-                    takingAmount: BigInt(result.data.takingAmount),
-                    makerTraits: BigInt(result.data.makerTraits)
+                    makingAmount: BigInt(result.data.makingAmount || '0'),
+                    takingAmount: BigInt(result.data.takingAmount || '0'),
+                    makerTraits: BigInt(result.data.makerTraits || '0')
                 },
                 createDateTime: result.createDateTime,
                 fillableBalance: result.fillableBalance || '0',
