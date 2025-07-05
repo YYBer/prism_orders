@@ -18,13 +18,20 @@ import {
 // Import types
 import { 
   StrategyConfig, 
+  StrategyType, 
+  TokenInfo, 
   OrderData, 
   LimitOrderStruct, 
   ValidationResult, 
   OrderStatus,
+  OneInchQuoteResponse,
+  OneInchOrderResponse,
+  OneInchOrdersResponse,
   OneInchOrderInfo,
   LIMIT_ORDER_PROTOCOL_ADDRESSES,
-  SWAP_API_BASE
+  ONEINCH_API_BASE,
+  SWAP_API_BASE,
+  Address
 } from './types';
 
 // Load environment variables
@@ -290,6 +297,9 @@ export class HodlLadderDCA {
     public async createDCAOrders(): Promise<OrderData[]> {
         console.log('\\n🚀 Creating DCA Orders using 1inch SDK...\\n');
 
+        // Check and handle token approval first
+        await this.ensureTokenApproval();
+
         const orders: OrderData[] = [];
         const totalAmountBigInt = ethers.utils.parseUnits(this.config.totalAmount, this.config.fromTokenDecimals).toBigInt();
         const amountPerOrder = totalAmountBigInt / BigInt(this.config.numberOfOrders);
@@ -309,12 +319,67 @@ export class HodlLadderDCA {
     }
 
     /**
+     * Ensure sufficient token approval for 1inch protocol
+     */
+    private async ensureTokenApproval(): Promise<void> {
+        const tokenContract = new ethers.Contract(this.config.fromToken, ERC20_ABI, this.signer);
+        const walletAddress = await this.signer.getAddress();
+        const totalAmountWei = ethers.utils.parseUnits(this.config.totalAmount, this.config.fromTokenDecimals);
+        
+        console.log('🔍 Checking token approval status...');
+        
+        // Check current allowance
+        const currentAllowance = await tokenContract.allowance(walletAddress, LIMIT_ORDER_PROTOCOL_ADDRESS);
+        
+        console.log(`📊 Current allowance: ${ethers.utils.formatUnits(currentAllowance, this.config.fromTokenDecimals)} ${this.config.fromTokenSymbol}`);
+        console.log(`📊 Required amount: ${this.config.totalAmount} ${this.config.fromTokenSymbol}`);
+        
+        if (currentAllowance.lt(totalAmountWei)) {
+            console.log('\\n⚠️  Insufficient allowance detected!');
+            console.log('🔄 Approving tokens for 1inch Limit Order Protocol...');
+            
+            try {
+                // Approve a larger amount to avoid frequent approvals (2x the required amount)
+                const approvalAmount = totalAmountWei.mul(2);
+                
+                console.log(`📝 Approving ${ethers.utils.formatUnits(approvalAmount, this.config.fromTokenDecimals)} ${this.config.fromTokenSymbol}...`);
+                
+                const approveTx = await tokenContract.approve(LIMIT_ORDER_PROTOCOL_ADDRESS, approvalAmount, {
+                    gasLimit: 100000 // Set a reasonable gas limit for approval
+                });
+                
+                console.log(`⏳ Approval transaction sent: ${approveTx.hash}`);
+                console.log('🔄 Waiting for confirmation...');
+                
+                const receipt = await approveTx.wait();
+                
+                console.log(`✅ Token approval confirmed in block ${receipt.blockNumber}`);
+                console.log(`💰 Approved: ${ethers.utils.formatUnits(approvalAmount, this.config.fromTokenDecimals)} ${this.config.fromTokenSymbol}`);
+                
+                // Wait a moment for the approval to propagate
+                console.log('⏱️  Waiting for approval to propagate...');
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
+            } catch (error) {
+                console.error('❌ Token approval failed:', (error as Error).message);
+                throw new Error(`Token approval failed: ${(error as Error).message}`);
+            }
+        } else {
+            console.log('✅ Sufficient token allowance already exists');
+        }
+    }
+
+    /**
      * Create a single limit order using 1inch SDK
      */
     private async createSingleOrderWithSDK(orderIndex: number, amountPerOrder: bigint): Promise<OrderData | null> {
         try {
+            console.log(`\\n🔨 Creating order ${orderIndex + 1}...`);
+            
             const currentPrice = await this.getCurrentPrice();
             const targetPrice = this.calculateTargetPrice(currentPrice, orderIndex);
+            
+            console.log(`🎯 Target price for order ${orderIndex + 1}: ${targetPrice.toFixed(6)} ${this.config.toTokenSymbol}`);
             
             // Calculate taking amount based on target price
             const takingAmount = this.calculateTakingAmountBigInt(amountPerOrder, targetPrice);
@@ -331,6 +396,11 @@ export class HodlLadderDCA {
                 .allowPartialFills()
                 .allowMultipleFills();
 
+            console.log(`📊 Order details:`);
+            console.log(`   Making: ${ethers.utils.formatUnits(amountPerOrder.toString(), this.config.fromTokenDecimals)} ${this.config.fromTokenSymbol}`);
+            console.log(`   Taking: ${ethers.utils.formatUnits(takingAmount.toString(), this.config.toTokenDecimals)} ${this.config.toTokenSymbol}`);
+            console.log(`   Price: ${targetPrice.toFixed(6)} ${this.config.toTokenSymbol} per ${this.config.fromTokenSymbol}`);
+
             // Create limit order using 1inch SDK
             const limitOrder = new LimitOrder({
                 makerAsset: new OneInchAddress(this.config.fromToken),
@@ -345,6 +415,8 @@ export class HodlLadderDCA {
             // Get typed data for signing
             const typedData = limitOrder.getTypedData(CHAIN_ID);
             
+            console.log(`🔐 Signing order ${orderIndex + 1}...`);
+            
             // Sign the order using EIP-712
             const signature = await (this.signer as any)._signTypedData(
                 typedData.domain,
@@ -355,11 +427,36 @@ export class HodlLadderDCA {
             // Get order hash
             const orderHash = limitOrder.getOrderHash(CHAIN_ID);
 
-            // Submit order to 1inch API
-            await this.oneInchApi.submitOrder(limitOrder, signature);
+            console.log(`📤 Submitting order ${orderIndex + 1} to 1inch API...`);
             
-            // Note: submitOrder returns void, so we assume success if no error is thrown
-            console.log(`✅ Order ${orderIndex + 1} submitted to 1inch API`);
+            // Submit order to 1inch API with retry logic
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    await this.oneInchApi.submitOrder(limitOrder, signature);
+                    break; // Success, exit retry loop
+                } catch (error: any) {
+                    retryCount++;
+                    console.log(`⚠️  Attempt ${retryCount} failed: ${error.message}`);
+                    
+                    if (error.message.includes('allowance')) {
+                        console.log('🔄 Allowance issue detected, re-checking approval...');
+                        await this.ensureTokenApproval();
+                    }
+                    
+                    if (retryCount < maxRetries) {
+                        console.log(`🔄 Retrying in 3 seconds... (${retryCount}/${maxRetries})`);
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                    } else {
+                        console.error(`❌ Failed to submit order ${orderIndex + 1} to 1inch API after ${maxRetries} attempts`);
+                        return null;
+                    }
+                }
+            }
+
+            console.log(`✅ Order ${orderIndex + 1} submitted successfully`);
 
             // Convert to our internal format
             const orderStruct: LimitOrderStruct = {
@@ -386,6 +483,20 @@ export class HodlLadderDCA {
 
         } catch (error) {
             console.error(`❌ Failed to create order ${orderIndex + 1}:`, (error as Error).message);
+            
+            // Provide specific error guidance
+            if ((error as Error).message.includes('allowance')) {
+                console.log('💡 This appears to be an allowance issue.');
+                console.log('🔧 The script should have handled approval automatically.');
+                console.log('🔄 You may need to manually approve tokens at https://app.1inch.io/');
+            } else if ((error as Error).message.includes('balance')) {
+                console.log('💡 Insufficient balance detected.');
+                console.log('💰 Please ensure you have enough tokens in your wallet.');
+            } else if ((error as Error).message.includes('API') || (error as Error).message.includes('rate')) {
+                console.log('💡 API issue detected.');
+                console.log('🔑 Check your 1inch API key and rate limits.');
+            }
+            
             return null;
         }
     }
@@ -489,7 +600,7 @@ export class HodlLadderDCA {
             const makerAddress = await this.signer.getAddress();
             const ordersResponse = await this.oneInchApi.getOrdersByMaker(new OneInchAddress(makerAddress));
             
-            // Filter only active orders - ordersResponse is directly an array
+            // Filter only active orders and map to expected format
             return ordersResponse.filter((order: any) => 
                 !order.orderInvalidReason && 
                 order.fillableBalance !== '0'
@@ -650,14 +761,15 @@ export class HodlLadderDCA {
             
             for (const orderInfo of activeApiOrders) {
                 try {
-                    // Note: cancelOrder method might not be available in current SDK version
-                    // Using alternative approach with direct contract interaction
-                    console.log(`ℹ️ Attempting to cancel order: ${orderInfo.orderHash.slice(0, 10)}...`);
+                    // Note: Direct cancellation via SDK may not be available
+                    // Alternative: mark as cancelled locally and inform user
+                    console.log(`ℹ️ Marking order for cancellation: ${orderInfo.orderHash.slice(0, 10)}...`);
                     console.log(`⚠️ Manual cancellation may be required via 1inch interface`);
                     
                     const orderData = this.activeOrders.get(orderInfo.orderHash);
                     if (orderData) {
                         orderData.status = OrderStatus.CANCELLED;
+                        console.log(`✅ Order marked as cancelled locally: ${orderInfo.orderHash.slice(0, 10)}...`);
                     }
                 } catch (error) {
                     console.error(`❌ Error cancelling order ${orderInfo.orderHash.slice(0, 10)}...:`, (error as Error).message);
@@ -677,7 +789,7 @@ export class HodlLadderDCA {
         
         try {
             const activeApiOrders = await this.getActiveOrdersFromAPI();
-            const allActiveOrdersCount = activeApiOrders.length; // Using local count as fallback
+            const allActiveOrdersCount = activeApiOrders.length; // Using count from API response
             
             console.log(`Active Orders (API): ${activeApiOrders.length}`);
             console.log(`Total Active Orders: ${allActiveOrdersCount}`);
@@ -778,9 +890,9 @@ export class HodlLadderDCA {
                     }
                 } else {
                     // Update remaining amount
-                    localOrderData.remainingMakingAmount = BigInt((apiOrderInfo as any).fillableBalance || '0');
+                    localOrderData.remainingMakingAmount = BigInt(apiOrderInfo.fillableBalance || '0');
                     
-                    if ((apiOrderInfo as any).fillableBalance !== localOrderData.order.makingAmount.toString()) {
+                    if (apiOrderInfo.fillableBalance !== localOrderData.order.makingAmount.toString()) {
                         localOrderData.status = OrderStatus.PARTIALLY_FILLED;
                         console.log(`📊 Order ${orderHash.slice(0, 10)}... partially filled`);
                     }

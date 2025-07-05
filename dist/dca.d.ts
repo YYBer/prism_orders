@@ -46,6 +46,10 @@ export declare class HodlLadderDCA {
      */
     createDCAOrders(): Promise<OrderData[]>;
     /**
+     * Ensure sufficient token approval for 1inch protocol
+     */
+    private ensureTokenApproval;
+    /**
      * Create a single limit order using 1inch SDK
      */
     private createSingleOrderWithSDK;

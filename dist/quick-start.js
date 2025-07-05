@@ -354,18 +354,26 @@ class QuickStartApp {
         }
         catch (error) {
             console.error('❌ Failed to run pre-configured strategy:', error.message);
-            if (error.message.includes('Insufficient balance') || error.message.includes('allowance')) {
-                console.log('\n💡 Troubleshooting:');
+            if (error.message.includes('Insufficient balance') || error.message.includes('balance')) {
+                console.log('\n💡 Balance Issues:');
                 console.log('1. Make sure you have enough tokens in your wallet');
-                console.log('2. The script will help you approve token spending');
+                console.log('2. Check that you have sufficient ETH for gas fees');
                 console.log('3. Get tokens from Base DEXs or bridges');
                 console.log('\nRun with "tokens" option for acquisition guide');
+            }
+            else if (error.message.includes('allowance') || error.message.includes('approval')) {
+                console.log('\n💡 Token Approval Issues:');
+                console.log('1. The script should automatically handle approvals');
+                console.log('2. If this fails, manually approve at https://app.1inch.io/');
+                console.log('3. You need to approve 1inch Limit Order Protocol to spend your tokens');
+                console.log('4. This is a one-time setup per token');
             }
             else if (error.message.includes('API') || error.message.includes('1inch')) {
                 console.log('\n💡 1inch API Issues:');
                 console.log('1. Check your API key at https://portal.1inch.dev/');
                 console.log('2. Verify network connectivity');
                 console.log('3. Ensure sufficient API rate limits');
+                console.log('4. Try again in a few minutes if rate limited');
             }
         }
     }
