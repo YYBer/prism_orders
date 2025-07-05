@@ -55,8 +55,20 @@ export interface LimitOrderStruct {
   makerTraits: bigint;
 }
 
+// 1inch SDK v5 Order Structure
+export interface LimitOrderV5Struct {
+  salt: string;
+  maker: string;
+  receiver: string;
+  makerAsset: string;
+  takerAsset: string;
+  makingAmount: string;
+  takingAmount: string;
+  makerTraits: string;
+}
+
 export interface OrderData {
-  order: LimitOrderStruct;
+  order: LimitOrderStruct | LimitOrderV5Struct;
   orderHash: string;
   signature: string;
   targetPrice: number;
@@ -65,6 +77,7 @@ export interface OrderData {
   createdAt: Date;
   expiresAt: Date;
   remainingMakingAmount?: bigint;
+  limitOrderInstance?: any; // Store LimitOrder instance for SDK calls
 }
 
 export interface PriceInfo {

@@ -6,7 +6,7 @@ import * as readline from 'readline';
 import * as dotenv from 'dotenv';
 
 // Import 1inch SDK
-import { Api, FetchProviderConnector } from '@1inch/limit-order-sdk';
+import { Api, FetchProviderConnector, LimitOrder, Address, MakerTraits, buildOrderTypedData } from '@1inch/limit-order-sdk';
 
 // Import types
 import {
@@ -14,6 +14,7 @@ import {
     OrderData,
     ValidationResult,
     LimitOrderStruct,
+    LimitOrderV5Struct,
     TokenInfo,
     StrategyType,
     OrderStatus,
@@ -385,36 +386,47 @@ export class TWAPStrategy {
             // Create limit order using 1inch SDK
             const walletAddress = await this.signer.getAddress();
             
-            // Generate order with time-based execution
-            const orderBuilder = this.oneInchApi.limitOrderBuilder();
-            const limitOrder = orderBuilder.buildLimitOrder({
-                makerAsset: this.config.fromToken,
-                takerAsset: this.config.toToken,
-                makingAmount: makingAmount.toBigInt(),
-                takingAmount: takingAmount,
-                maker: walletAddress,
-            });
+            // Set expiration time using MakerTraits
+            const expirationTimestamp = BigInt(Math.floor(expirationTime.getTime() / 1000));
+            const makerTraits = new MakerTraits(0n)
+                .withExpiration(expirationTimestamp)
+                .allowPartialFills()
+                .allowMultipleFills();
 
-            // Set expiration time
-            const expirationTimestamp = Math.floor(expirationTime.getTime() / 1000);
-            limitOrder.setExpiration(expirationTimestamp);
+            // Create limit order using 1inch SDK v5
+            const limitOrder = new LimitOrder(
+                {
+                    makerAsset: new Address(this.config.fromToken),
+                    takerAsset: new Address(this.config.toToken),
+                    makingAmount: makingAmount.toBigInt(),
+                    takingAmount: takingAmount,
+                    maker: new Address(walletAddress)
+                },
+                makerTraits
+            );
 
             // Build the order
-            const limitOrderTypedData = limitOrder.build();
+            const limitOrderTypedData = limitOrder.getTypedData(CHAIN_ID);
             
-            // Sign the order
-            const signature = await limitOrder.sign(this.signer);
+            // Sign the order using ethers v5 compatible method with proper type structure
+            const signature = await (this.signer as any)._signTypedData(
+                limitOrderTypedData.domain,
+                { Order: limitOrderTypedData.types.Order },
+                limitOrderTypedData.message
+            );
 
+            const builtOrder = limitOrder.build();
             const orderData: OrderData = {
-                order: limitOrderTypedData.message,
-                orderHash: limitOrder.getOrderHash(limitOrderTypedData.message),
+                order: builtOrder,
+                orderHash: limitOrder.getOrderHash(CHAIN_ID),
                 signature,
                 targetPrice,
                 orderIndex,
                 status: OrderStatus.ACTIVE,
                 createdAt: new Date(),
                 expiresAt: expirationTime,
-                remainingMakingAmount: makingAmount.toBigInt()
+                remainingMakingAmount: makingAmount.toBigInt(),
+                limitOrderInstance: limitOrder // Store the LimitOrder instance for SDK calls
             };
 
             return orderData;
@@ -544,7 +556,7 @@ export class TWAPStrategy {
     private async handleOrderExpirations(): Promise<void> {
         const now = new Date();
         
-        for (const [orderHash, orderData] of this.activeOrders) {
+        for (const [, orderData] of this.activeOrders) {
             if (orderData.status === OrderStatus.ACTIVE && orderData.expiresAt <= now) {
                 orderData.status = OrderStatus.EXPIRED;
                 console.log(`⏰ Order ${orderData.orderIndex + 1} expired`);
@@ -579,32 +591,27 @@ export class TWAPStrategy {
     private async submitOrdersToProtocol(): Promise<void> {
         let successCount = 0;
         
-        for (const [orderHash, orderData] of this.activeOrders) {
+        for (const [, orderData] of this.activeOrders) {
             try {
-                const response = await axios.post(
-                    `${LIMIT_ORDER_API_BASE(CHAIN_ID)}/order`,
-                    {
-                        orderHash: orderData.orderHash,
-                        signature: orderData.signature,
-                        data: orderData.order
-                    },
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${ONEINCH_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        }
-                    }
-                );
-
-                if (response.data.success) {
+                // Use the 1inch SDK's submitOrder method
+                if (orderData.limitOrderInstance) {
+                    await this.oneInchApi.submitOrder(orderData.limitOrderInstance, orderData.signature);
                     successCount++;
                     console.log(`✅ Order ${orderData.orderIndex + 1} submitted to 1inch`);
+                    console.log(`   📊 Order Hash: ${orderData.orderHash.slice(0, 10)}...`);
                 } else {
-                    console.log(`❌ Failed to submit order ${orderData.orderIndex + 1}`);
+                    console.log(`❌ Failed to submit order ${orderData.orderIndex + 1}: No limit order instance available`);
                 }
                 
             } catch (error) {
-                console.error(`❌ Submit error for order ${orderData.orderIndex + 1}:`, (error as any).response?.data || (error as Error).message);
+                console.error(`❌ Submit error for order ${orderData.orderIndex + 1}:`, (error as Error).message);
+                
+                // Provide helpful error messages
+                if ((error as Error).message.includes('401') || (error as Error).message.includes('Unauthorized')) {
+                    console.log('💡 API key issue detected. Check your 1inch API key at https://portal.1inch.dev/');
+                } else if ((error as Error).message.includes('400') || (error as Error).message.includes('Bad Request')) {
+                    console.log('💡 Order validation failed. Check order parameters and maker balance/allowance.');
+                }
             }
         }
 

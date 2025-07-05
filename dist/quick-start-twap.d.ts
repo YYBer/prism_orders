@@ -14,5 +14,4 @@ export declare class TWAPQuickStartApp {
     private showMonitoringInstructions;
     private askConfirmation;
 }
-export { TWAPQuickStartApp };
 //# sourceMappingURL=quick-start-twap.d.ts.map

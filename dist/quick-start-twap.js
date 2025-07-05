@@ -117,7 +117,7 @@ const TWAP_STRATEGIES = {
         config: {
             fromTokenSymbol: 'WETH',
             toTokenSymbol: 'USDC',
-            totalAmount: '0.1',
+            totalAmount: '0.01',
             numberOfOrders: 6,
             strategyType: types_1.StrategyType.TIME_BASED_DCA,
             intervalHours: 0.167, // 10 minutes
@@ -131,7 +131,7 @@ const TWAP_STRATEGIES = {
         config: {
             fromTokenSymbol: '1INCH',
             toTokenSymbol: 'USDC',
-            totalAmount: '100',
+            totalAmount: '10',
             numberOfOrders: 6,
             strategyType: types_1.StrategyType.TIME_BASED_DCA,
             intervalHours: 4,
@@ -268,8 +268,8 @@ class TWAPQuickStartApp {
         console.log(`  Total Amount: ${config.totalAmount} ${config.fromToken.symbol}`);
         console.log(`  Order Count: ${config.numberOfOrders}`);
         console.log(`  Amount per Order: ${(parseFloat(config.totalAmount) / config.numberOfOrders).toFixed(6)} ${config.fromToken.symbol}`);
-        console.log(`  Interval: ${config.intervalHours} hours`);
-        console.log(`  Total Duration: ${config.intervalHours * config.numberOfOrders} hours`);
+        console.log(`  Interval: ${config.intervalHours || 1} hours`);
+        console.log(`  Total Duration: ${(config.intervalHours || 1) * config.numberOfOrders} hours`);
         console.log(`  Slippage Tolerance: ${config.slippageTolerance}%\n`);
         // Check token balance
         try {

@@ -78,11 +78,11 @@ const TWAP_STRATEGIES: Record<string, PreConfiguredTWAPStrategy> = {
     config: {
       fromTokenSymbol: '1INCH',
       toTokenSymbol: 'USDC',
-      totalAmount: '50',
-      numberOfOrders: 6,
+      totalAmount: '20',
+      numberOfOrders: 3,
       strategyType: StrategyType.TIME_BASED_DCA,
       intervalHours: 1,
-      buyPercent: 16.67, // 100/6 orders
+      buyPercent: 6.67,
       slippageTolerance: 1
     }
   },
@@ -106,8 +106,8 @@ const TWAP_STRATEGIES: Record<string, PreConfiguredTWAPStrategy> = {
     config: {
       fromTokenSymbol: 'WETH',
       toTokenSymbol: 'USDC',
-      totalAmount: '0.1',
-      numberOfOrders: 6,
+      totalAmount: '0.01',
+      numberOfOrders: 3,
       strategyType: StrategyType.TIME_BASED_DCA,
       intervalHours: 0.167, // 10 minutes
       buyPercent: 16.67,
@@ -120,8 +120,8 @@ const TWAP_STRATEGIES: Record<string, PreConfiguredTWAPStrategy> = {
     config: {
       fromTokenSymbol: '1INCH',
       toTokenSymbol: 'USDC',
-      totalAmount: '100',
-      numberOfOrders: 6,
+      totalAmount: '10',
+      numberOfOrders: 3,
       strategyType: StrategyType.TIME_BASED_DCA,
       intervalHours: 4,
       buyPercent: 16.67,
@@ -286,8 +286,8 @@ export class TWAPQuickStartApp {
     console.log(`  Total Amount: ${config.totalAmount} ${config.fromToken.symbol}`);
     console.log(`  Order Count: ${config.numberOfOrders}`);
     console.log(`  Amount per Order: ${(parseFloat(config.totalAmount) / config.numberOfOrders).toFixed(6)} ${config.fromToken.symbol}`);
-    console.log(`  Interval: ${config.intervalHours} hours`);
-    console.log(`  Total Duration: ${config.intervalHours * config.numberOfOrders} hours`);
+    console.log(`  Interval: ${config.intervalHours || 1} hours`);
+    console.log(`  Total Duration: ${(config.intervalHours || 1) * config.numberOfOrders} hours`);
     console.log(`  Slippage Tolerance: ${config.slippageTolerance}%\n`);
 
     // Check token balance
@@ -504,4 +504,3 @@ if (require.main === module) {
   });
 }
 
-export { TWAPQuickStartApp };
