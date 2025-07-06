@@ -29,20 +29,17 @@ Create a grid of buy and sell orders around current market price to profit from 
 
 - **💸 Flexible Configuration**: Set total investment, asset pairs, order count, and trigger conditions
 - **⏱️ Real-time Execution**: Leverages 1inch's advanced limit order infrastructure
-- **🔄 Auto-rebalancing**: Automatically creates new orders as existing ones execute
 - **📊 Live Monitoring**: Real-time tracking of active, filled, and expired orders via 1inch API
-- **🧹 Smart Cleanup**: Automatic removal of expired or invalid orders
 - **⚡ Gas Optimization**: Intelligent gas price management and batch operations
-- **🛡️ Risk Management**: Built-in slippage protection and position sizing controls
 - **📱 Beautiful UI**: Clean, intuitive interface for strategy configuration and monitoring
 
 ---
 
 ## 🛠 Technical Architecture
 
-- **Smart Contracts**: 1inch Limit Order Protocol v4 (Battle-tested, audited)
+- **Smart Contracts**: 1inch Limit Order Protocol v4
 - **Frontend**: React + TypeScript + TailwindCSS
-- **Blockchain**: Multi-chain support (Ethereum, Base, Polygon, Arbitrum, etc.)
+- **Blockchain**: Base Chain support
 - **APIs**: Direct integration with 1inch orderbook and price feeds
 - **Automation**: On-chain order execution with off-chain monitoring
 - **Security**: Non-custodial - you maintain full control of your funds
