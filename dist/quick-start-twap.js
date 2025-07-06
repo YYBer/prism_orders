@@ -89,11 +89,11 @@ const TWAP_STRATEGIES = {
         config: {
             fromTokenSymbol: '1INCH',
             toTokenSymbol: 'USDC',
-            totalAmount: '50',
-            numberOfOrders: 6,
+            totalAmount: '20',
+            numberOfOrders: 3,
             strategyType: types_1.StrategyType.TIME_BASED_DCA,
             intervalHours: 1,
-            buyPercent: 16.67, // 100/6 orders
+            buyPercent: 6.67,
             slippageTolerance: 1
         }
     },
@@ -118,7 +118,7 @@ const TWAP_STRATEGIES = {
             fromTokenSymbol: 'WETH',
             toTokenSymbol: 'USDC',
             totalAmount: '0.01',
-            numberOfOrders: 6,
+            numberOfOrders: 3,
             strategyType: types_1.StrategyType.TIME_BASED_DCA,
             intervalHours: 0.167, // 10 minutes
             buyPercent: 16.67,
@@ -132,7 +132,7 @@ const TWAP_STRATEGIES = {
             fromTokenSymbol: '1INCH',
             toTokenSymbol: 'USDC',
             totalAmount: '10',
-            numberOfOrders: 6,
+            numberOfOrders: 3,
             strategyType: types_1.StrategyType.TIME_BASED_DCA,
             intervalHours: 4,
             buyPercent: 16.67,

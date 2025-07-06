@@ -16,7 +16,9 @@
     "prebuild": "npm run clean",
     "tokens": "ts-node scripts/token-guide.ts",
     "twap": "ts-node src/quick-start-twap.ts",
-    "twap-dev": "ts-node --watch src/quick-start-twap.ts"
+    "twap-dev": "ts-node --watch src/quick-start-twap.ts",
+    "grid": "ts-node src/quick-start-grid.ts",
+    "grid-dev": "ts-node --watch src/quick-start-grid.ts"
   },
   "keywords": [
     "1inch",

@@ -1,1 +1,1 @@
-{"root":["./src/dca.ts","./src/quick-start-twap.ts","./src/quick-start.ts","./src/twap.ts","./src/types.ts"],"errors":true,"version":"5.8.3"}
+{"root":["./src/dca.ts","./src/grid.ts","./src/quick-start-dca.ts","./src/quick-start-grid.ts","./src/quick-start-twap.ts","./src/twap.ts","./src/types.ts"],"version":"5.8.3"}

@@ -5,6 +5,7 @@ Prism Orders is a smart execution strategy toolkit built on top of the **1inch L
 - **Time-Weighted Average Price (TWAP)** orders
 - **Hodl Ladder** (Price-Based DCA) strategies
 
+
 With a beautiful UI, clean UX, and auto-cleanup of expired orders, Prism Orders is designed for DeFi users who want fine-grained control over their trade execution.
 
 ---

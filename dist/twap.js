@@ -502,14 +502,14 @@ class TWAPStrategy {
         for (const [, orderData] of this.activeOrders) {
             try {
                 // Use the 1inch SDK's submitOrder method
-                const response = await this.oneInchApi.submitOrder(orderData.order, orderData.signature);
-                if (response.success) {
+                if (orderData.limitOrderInstance) {
+                    await this.oneInchApi.submitOrder(orderData.limitOrderInstance, orderData.signature);
                     successCount++;
                     console.log(`✅ Order ${orderData.orderIndex + 1} submitted to 1inch`);
-                    console.log(`   📊 Order Hash: ${response.orderHash?.slice(0, 10)}...`);
+                    console.log(`   📊 Order Hash: ${orderData.orderHash.slice(0, 10)}...`);
                 }
                 else {
-                    console.log(`❌ Failed to submit order ${orderData.orderIndex + 1}`);
+                    console.log(`❌ Failed to submit order ${orderData.orderIndex + 1}: No limit order instance available`);
                 }
             }
             catch (error) {
